@@ -1,3 +1,7 @@
+[主页](https://honghurumeng.github.io/)
+
+
+
 [五子棋对战电脑](https://honghurumeng.github.io/Gobang-VS-AI)
 
 
