@@ -15,7 +15,7 @@ jobs:
       - name: Update address JSON
         id: update_json
         run: |
-          echo "{\"address\": \"${{ github.event.client_payload.address }}\"}" > address.json
+          echo "let node_server_json = {\"address\": \"${{ github.event.client_payload.address }}\"}" > address.json
 
       - name: Commit changes
         run: |
