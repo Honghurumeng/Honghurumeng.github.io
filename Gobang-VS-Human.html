@@ -1,0 +1,672 @@
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>五子棋</title>
+    <style>
+        button:focus {
+            outline: 0;
+        }
+
+        ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .goBang {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vw;
+            height: 80vw;
+            max-width: 500px;
+            max-height: 500px;
+            text-align: center;
+            background: bisque;
+        }
+
+        .loading {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .board {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .board_unit {
+            float: left;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .board_unit::before {
+            content: '';
+            width: 100%;
+            height: 1px;
+            background: #000000;
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .board_unit::after {
+            content: '';
+            width: 1px;
+            height: 100%;
+            background: #000000;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .indicator {
+            content: '';
+            width: 10px;
+            height: 10px;
+            background: #ffffff;
+            border-radius: 50%;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            display: none;
+            pointer-events: none;
+        }
+
+        .board_unit:hover .indicator {
+            display: block;
+        }
+
+        .board_unit>span {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            left: 0;
+            top: 0;
+            border-radius: 50%;
+            display: none;
+            transform: scale(0.6);
+            z-index: 4;
+        }
+
+        .btnWarp {
+            text-align: center;
+        }
+
+        .btn {
+            text-align: center;
+            width: 100px;
+            height: 40px;
+            padding: 0;
+            margin: 10px;
+            border: none;
+            background: bisque;
+            font-size: 18px;
+        }
+
+        .btn.disabled {
+            background: #eeeeee;
+        }
+
+        .win {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .win_txt {
+            position: absolute;
+            left: 50%;
+            top: 20%;
+            transform: translateX(-50%);
+            color: aquamarine;
+            font-size: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            z-index: 10;
+        }
+
+        .win_btn {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 36px;
+            background: #3f51b5;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            box-shadow: 0px 2px 5px 0px rgba(0, 0, 0, 0.16), 0px 2px 10px 0px rgba(0, 0, 0, 0.12);
+            text-transform: uppercase;
+            font-size: 14px;
+            line-height: 36px;
+            text-align: center;
+            transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .win_btn:hover {
+            box-shadow: 0px 3px 5px 0px rgba(0, 0, 0, 0.2), 0px 3px 10px 0px rgba(0, 0, 0, 0.14);
+        }
+
+        .win_btn:active {
+            box-shadow: 0px 5px 5px 0px rgba(0, 0, 0, 0.2), 0px 5px 10px 0px rgba(0, 0, 0, 0.14);
+        }
+
+        .left::before {
+            left: 50%;
+            width: 50%;
+        }
+
+        .right::before {
+            right: 50%;
+            width: 50%;
+        }
+
+        .top::after {
+            top: 50%;
+            height: 50%;
+        }
+
+        .bottom::after {
+            bottom: 50%;
+            height: 50%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="goBang" id="goBang">
+        <div class="loading">游戏加载中...</div>
+    </div>
+    <div class="btnWarp">
+        <button class="btn btn_return disabled">悔棋</button>
+    </div>
+    <script>
+        (function (w, d, undefined) {
+            //棋盘单元格默认值
+            let gridUnitCount = 15;
+            //单元格默认大小
+            let gridUnitWidth = 50;
+            //棋盘
+            let gridBoard = [];
+            //容器
+            let el = d.querySelector('#goBang');
+            //棋盘单元格
+            let unitClass = 'board_unit';
+            //悔棋按钮
+            let returnClass = 'btn_return';
+            //撤销悔棋按钮
+            let cancelReturnClass = 'btn_cancelReturn';
+            //重新开始
+            let winRestart = 'win_btn';
+
+            /* 创建棋盘 */
+            function createBoard() {
+                gridBoard = [];
+                let board = '';
+                let value = 0;
+                let elWidth, vUnit;
+                if (el) {
+                    elWidth = el.getBoundingClientRect().width;
+                    vUnit = Math.floor(elWidth / gridUnitWidth);
+                    gridUnitCount = Math.max(gridUnitCount, vUnit);
+                    gridUnitWidth = elWidth / gridUnitCount;
+                    for (let i = 0; i < gridUnitCount; i++) {
+                        for (let j = 0; j < gridUnitCount; j++) {
+                            gridBoard.push(value);
+                            board += createUnit(value, j, i);
+                            value = value + 1;
+                        }
+                    }
+                    board = '<ul class="board">' + board + '</ul>';
+                } else {
+                    board = '<p>初始化游戏失败！</p>';
+                }
+                el.innerHTML = board;
+                return {
+                    gridUnitCount: gridUnitCount,
+                    gridUnitWidth: gridUnitWidth,
+                    gridBoard: gridBoard
+                };
+            }
+
+            /* 创建棋盘单元格 */
+            function createUnit(v, x, y) {
+                let className = unitClass;
+                if (x === 0) {
+                    className += ' left';
+                } else if (x === gridUnitCount - 1) {
+                    className += ' right';
+                }
+                if (y === 0) {
+                    className += ' top';
+                } else if (y === gridUnitCount - 1) {
+                    className += ' bottom';
+                }
+                return (
+                    '<li class="' +
+                    className +
+                    '" style="height:' +
+                    gridUnitWidth +
+                    'px;width:' +
+                    gridUnitWidth +
+                    'px;" data-value=' +
+                    v +
+                    '><div class="indicator"></div><span></span></li>'
+                );
+            }
+
+            /* 创建一个棋子 */
+            function createPiece(el, who) {
+                //who:0表示白棋，1表示黑棋
+                if (typeof el === 'number') {
+                    el = d.querySelector('.' + unitClass + '[data-value="' + el + '"]');
+                }
+                let piece = el && el.querySelector('span');
+                if (piece) {
+                    piece.style.background = who === 1 ? '#000000' : '#ffffff';
+                    piece.style.display = 'block';
+                }
+            }
+
+            /* 销毁一个棋子 */
+            function cancelLastStep(el, who) {
+                //who:0表示白棋，1表示黑棋
+                if (typeof el === 'number') {
+                    el = d.querySelector('.' + unitClass + '[data-value="' + el + '"]');
+                }
+                let piece = el && el.querySelector('span');
+                if (piece) {
+                    piece.style.background = 'none';
+                    piece.style.display = 'none';
+                }
+            }
+
+            /* 获取棋子的值 */
+            function getStepValue(el) {
+                return +el.getAttribute('data-value');
+            }
+
+            /* 胜利，结束 */
+            function winOver(who) {
+                //who:0表示白棋，1表示黑棋
+                let winner = document.createElement('p');
+                winner.textContent = (who === 0 ? '白方获胜！' : '黑方获胜！') + '';
+                winner.className = 'win_txt';
+                let reStart = document.createElement('button');
+                reStart.textContent = '重新开始';
+                reStart.className = 'win_btn';
+                let winEl = document.createElement('div');
+                winEl.className = 'win';
+                winEl.appendChild(winner);
+                winEl.appendChild(reStart);
+                if (el) {
+                    el.appendChild(winEl);
+                }
+                //悔棋按钮
+                var returnBtn = d.querySelector('.' + returnClass);
+                //撤销悔棋按钮
+                var cancelReturnBtn = d.querySelector('.' + cancelReturnClass);
+                if (returnBtn) {
+                    returnBtn.classList.add('disabled');
+                }
+                if (cancelReturnBtn) {
+                    cancelReturnBtn.classList.add('disabled');
+                }
+            }
+
+            /* 平局 */
+            function drawOver() {
+                //who:0表示白棋，1表示黑棋
+                let draw = document.createElement('p');
+                draw.textContent = '平局！';
+                draw.className = 'win_txt';
+                let reStart = document.createElement('button');
+                reStart.textContent = '重新开始';
+                reStart.className = 'win_btn';
+                let winEl = document.createElement('div');
+                winEl.className = 'win';
+                winEl.appendChild(draw);
+                winEl.appendChild(reStart);
+                if (el) {
+                    el.appendChild(winEl);
+                }
+                //悔棋按钮
+                var returnBtn = d.querySelector('.' + returnClass);
+                //撤销悔棋按钮
+                var cancelReturnBtn = d.querySelector('.' + cancelReturnClass);
+                if (returnBtn) {
+                    returnBtn.classList.add('disabled');
+                }
+                if (cancelReturnBtn) {
+                    cancelReturnBtn.classList.add('disabled');
+                }
+            }
+
+            //挂到命名空间下
+            if (typeof w.GO === 'undefined') {
+                w.GO = {};
+            }
+            w.GO.View = {
+                createBoard: createBoard,
+                createPiece: createPiece,
+                cancelLastStep: cancelLastStep,
+                getStepValue: getStepValue,
+                winOver: winOver,
+                drawOver: drawOver,
+                unitClass: unitClass,
+                returnClass: returnClass,
+                cancelReturnClass: cancelReturnClass,
+                winRestart: winRestart
+            };
+        })(window, document);
+        /* 五子棋对战 */
+
+        (function (w, d, b, undefined) {
+            //最大值悔棋
+            const MAX_RETURN = 100;
+            //我
+            let Human = {
+                id: 0,
+                pieces: [],
+                lastReturnPiece: null
+            };
+            //电脑
+            let Bot = {
+                id: 1,
+                pieces: [],
+                lastReturnPiece: null
+            };
+            //当前为谁,默认为我
+            let WHO = Human.id;
+            //棋盘状态
+            let boardStatus = null;
+            //已经被占据的棋盘状态
+            let havenBoardStatus = null;
+            //棋盘单元格
+            let unitClass = b.View.unitClass;
+            //悔棋按钮类名
+            let returnClass = b.View.returnClass;
+            //撤销悔棋按钮类明
+            let cancelReturnClass = b.View.cancelReturnClass;
+            //重新开始
+            let winRestart = b.View.winRestart;
+            //悔棋按钮
+            let returnBtn = d.querySelector(`.${returnClass}`);
+            //撤销悔棋按钮
+            let cancelReturnBtn = d.querySelector(`.${cancelReturnClass}`);
+
+            /* 开始游戏 */
+            function start() {
+                //创建棋盘
+                boardStatus = b.View.createBoard();
+                havenBoardStatus = [...Bot.pieces, ...Human.pieces];
+                // 通过点击对象的类名来判断点击的是哪个按钮
+                d.addEventListener('click', e => {
+                    let el = e.target;
+                    let classList = el.classList;
+                    if (classList.contains(unitClass)) {
+                        //第一步是人开始
+                        humanStep(el);
+                    } else if (classList.contains(returnClass)) {
+                        //悔棋
+                        returnStep(el);
+                    } else if (classList.contains(winRestart)) {
+                        //重新开始
+                        reStart();
+                    }
+                });
+            }
+
+            /* 重新开始 */
+            function reStart() {
+                Human.pieces = [];
+                Human.lastReturnPiece = null;
+                Bot.pieces = [];
+                Bot.lastReturnPiece = null;
+                boardStatus = null;
+                WHO = Human.id;
+                havenBoardStatus = [...Bot.pieces, ...Human.pieces];
+                //重新创建棋盘
+                boardStatus = b.View.createBoard();
+            }
+
+            /* 人下棋 */
+            function humanStep(el) {
+                //开始下棋
+                if (WHO === Human.id) {
+                    let step = b.View.getStepValue(el);
+                    if (!~havenBoardStatus.indexOf(step)) {
+                        Human.pieces.push(step);
+                        havenBoardStatus = [...Bot.pieces, ...Human.pieces];
+                        b.View.createPiece(el, Human.id);
+                        if (isWinOver(Human.id, step, 5)) {
+                            b.View.winOver(WHO);
+                            return true;
+                        }
+                        WHO = Bot.id;
+                        var indicators = document.getElementsByClassName('indicator');
+                        for (var i = 0; i < indicators.length; i++) {
+                            indicators[i].style.background = '#000';
+                        }
+                        if (returnBtn) {
+                            returnBtn.classList.remove('disabled');
+                        }
+                    }
+                } else {
+                    let step = b.View.getStepValue(el);
+                    if (!~havenBoardStatus.indexOf(step)) {
+                        Bot.pieces.push(step);
+                        havenBoardStatus = [...Bot.pieces, ...Human.pieces];
+                        b.View.createPiece(el, Bot.id);
+                        if (isWinOver(Bot.id, step, 5)) {
+                            b.View.winOver(WHO);
+                            return true;
+                        }
+                        WHO = Human.id;
+                        var indicators = document.getElementsByClassName('indicator');
+                        for (var i = 0; i < indicators.length; i++) {
+                            indicators[i].style.background = '#fff';
+                        }
+                        if (returnBtn) {
+                            returnBtn.classList.remove('disabled');
+                        }
+                    }
+                }
+            }
+
+            /* 悔棋 */
+            function returnStep(el) {
+                if (el.classList.contains('disabled')) {
+                    return false;
+                }
+                if (WHO == Bot.id) {
+                    //人类先悔棋
+                    let lastHumanStep = Human.pieces.slice(-1)[0];
+                    if (lastHumanStep != undefined) {
+                        let lastHumanStepXY = computeXY(lastHumanStep);
+                        let lastHumanValue = computeValue(lastHumanStepXY[0], lastHumanStepXY[1]);
+                        Human.lastReturnPiece = Human.pieces.splice(Human.pieces.length - 1, 1)[0];
+                        havenBoardStatus = [...Bot.pieces, ...Human.pieces];
+                        b.View.cancelLastStep(lastHumanValue, Human.id);
+                        WHO = Human.id;
+                        var indicators = document.getElementsByClassName('indicator');
+                        for (var i = 0; i < indicators.length; i++) {
+                            indicators[i].style.background = '#fff';
+                        }
+                    }
+                } else {
+                    //机器人先悔棋
+                    let lastBotStep = Bot.pieces.slice(-1)[0];
+                    if (lastBotStep != undefined) {
+                        let lastBotStepXY = computeXY(lastBotStep);
+                        let lastBotValue = computeValue(lastBotStepXY[0], lastBotStepXY[1]);
+                        Bot.lastReturnPiece = Bot.pieces.splice(Bot.pieces.length - 1, 1)[0];
+                        havenBoardStatus = [...Bot.pieces, ...Human.pieces];
+                        b.View.cancelLastStep(lastBotValue, Bot.id);
+                        WHO = Bot.id;
+                        var indicators = document.getElementsByClassName('indicator');
+                        for (var i = 0; i < indicators.length; i++) {
+                            indicators[i].style.background = '#000';
+                        }
+                    }
+                }
+            }
+
+            /* 判断是否胜利，结束 */
+            function isWinOver(who, step, num) {
+                let havenBoardStatus = [...Bot.pieces, ...Human.pieces];
+                let size = boardStatus.gridUnitCount;
+                let current = who === Human.id ? Human : Bot;
+                if (current.pieces.length < num - 1) {
+                    return false;
+                }
+                let [currentX, currentY] = computeXY(step);
+                //水平方向
+                for (let i = 0; i < num; i++) {
+                    let x = currentX - i;
+                    let y = currentY;
+                    let [min, max] = minMaxHorizontal(x, y);
+                    if (x >= 0) {
+                        let hSteps = [0, 1, 2, 3, 4]
+                            .slice(0, num)
+                            .map(v => computeValue(x + v, y))
+                            .filter(v => v === step || (v >= min && v <= max && ~current.pieces.indexOf(v)));
+                        if (hSteps.length === num) {
+                            //胜利
+                            return true;
+                        }
+                    }
+                }
+                //垂直方向
+                for (let i = 0; i < num; i++) {
+                    let x = currentX;
+                    let y = currentY - i;
+                    let [min, max] = minMaxVertical(x, y);
+                    if (y >= 0) {
+                        let hSteps = [0, 1, 2, 3, 4]
+                            .slice(0, num)
+                            .map(v => computeValue(x, y + v))
+                            .filter(v => v === step || (v >= min && v <= max && ~current.pieces.indexOf(v)));
+                        if (hSteps.length === num) {
+                            //胜利
+                            return true;
+                        }
+                    }
+                }
+                //45度方向
+                for (let i = 0; i < num; i++) {
+                    let x = currentX + i;
+                    let y = currentY - i;
+                    let [min, max] = minMax45Degree(x, y);
+                    if (y >= 0 && x <= size - 1) {
+                        let hSteps = [0, 1, 2, 3, 4]
+                            .slice(0, num)
+                            .map(v => computeValue(x - v, y + v))
+                            .filter(v => v === step || (v >= min && v <= max && ~current.pieces.indexOf(v)));
+                        if (hSteps.length === num) {
+                            //胜利
+                            return true;
+                        }
+                    }
+                }
+                //135度方向
+                for (let i = 0; i < num; i++) {
+                    let x = currentX - i;
+                    let y = currentY - i;
+                    let [min, max] = minMax135degree(x, y);
+                    if (y >= 0 && x >= 0) {
+                        let hSteps = [0, 1, 2, 3, 4]
+                            .slice(0, num)
+                            .map(v => computeValue(x + v, y + v))
+                            .filter(v => v === step || (v >= min && v <= max && ~current.pieces.indexOf(v)));
+                        if (hSteps.length === num) {
+                            //胜利
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            /* 当前坐标的水平方向的最大最小值 */
+            function minMaxHorizontal(x, y) {
+                let size = boardStatus.gridUnitCount;
+                let min = computeValue(0, y);
+                let max = computeValue(size - 1, y);
+                return [min, max];
+            }
+
+            /* 当前坐标的垂直方向的最大最小值 */
+            function minMaxVertical(x, y) {
+                let size = boardStatus.gridUnitCount;
+                let min = computeValue(x, 0);
+                let max = computeValue(x, size - 1);
+                return [min, max];
+            }
+
+            /* 当前坐标的45度方向最大最小值 */
+            function minMax45Degree(x, y) {
+                let size = boardStatus.gridUnitCount;
+                let minX = Math.min(size - 1, x + y);
+                let minY = Math.max(0, y - (minX - x));
+                let min = computeValue(minX, minY);
+                let maxY = Math.min(size - 1, x + y);
+                let maxX = Math.max(0, x - (maxY - y));
+                let max = computeValue(maxX, maxY);
+                return [min, max];
+            }
+
+            /* 当前坐标的135度方向最大最小值 */
+            function minMax135degree(x, y) {
+                let size = boardStatus.gridUnitCount;
+                let minX = Math.max(0, x - y);
+                let minY = Math.max(0, y - (x - minX));
+                let min = computeValue(minX, minY);
+                let maxX = Math.min(size - 1, x + size - y);
+                let maxY = Math.min(size - 1, y + (maxX - x));
+                let max = computeValue(maxX, maxY);
+                return [min, max];
+            }
+
+            /* 计算XY的坐标 */
+            function computeXY(v) {
+                let size = boardStatus.gridUnitCount;
+                let y = Math.floor(v / size);
+                let x = v % size;
+                return [x, y];
+            }
+
+            /* 计算坐标值 */
+            function computeValue(x, y) {
+                let size = boardStatus.gridUnitCount;
+                return y * size + x;
+            }
+
+            start();
+        })(window, document, window.GO);
+    </script>
+</body>
+
+</html>
