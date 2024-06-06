@@ -1,1 +1,1 @@
-let node_server_json = {"address":"https://honghurumeng.github.io/"}; // 服务器地址
+let node_server_json = {"address": "https://9bba-119-123-101-58.ngrok-free.app"};
