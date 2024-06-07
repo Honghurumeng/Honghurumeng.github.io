@@ -22,7 +22,7 @@ jobs:
         run: |
           ADDRESS=${{ github.event.client_payload.address }}
           ESCAPED_ADDRESS=$(printf '%q' "$ADDRESS")
-          sed -i "s|// 替换这一行|let NODE_SERVER_ADDRESS = $ESCAPED_ADDRESS; // 替换这一行|g" index.html
+          sed -i "s|.*// 替换这一行.*|let NODE_SERVER_ADDRESS = $ESCAPED_ADDRESS; // 替换这一行|g" index.html
 
       - name: Commit changes
         run: |
