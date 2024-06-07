@@ -37,6 +37,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
 
+      - name: Wait for deployment
+        run: sleep 40 # 等待40秒，确保部署完成
+
       - name: Send completion status to Termux
         run: |
           curl -X POST -H "Content-Type: application/json" -d '{"status": "completed"}' ${{ github.event.client_payload.callback_url }}
