@@ -20,7 +20,8 @@ jobs:
       - name: Update address in file
         id: update_file
         run: |
-          sed -i 's/'NODE_SERVER_ADDRESS'/${{ github.event.client_payload.address }}/g' index.html
+          ADDRESS=${{ github.event.client_payload.address }}
+          sed -i "s|NODE_SERVER_ADDRESS|$ADDRESS|g" index.html
 
       - name: Commit changes
         run: |
