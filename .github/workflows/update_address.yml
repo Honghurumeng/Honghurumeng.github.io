@@ -21,7 +21,7 @@ jobs:
         id: update_file
         run: |
           ADDRESS=${{ github.event.client_payload.address }}
-          sed -i "s|NODE_SERVER_ADDRESS|$ADDRESS|g" index.html
+          sed -i "/替换这一行/s/.*/let NODE_SERVER_ADDRESS = \$ADDRESS; \\/\\/替换这一行/g" index.html
 
       - name: Commit changes
         run: |
